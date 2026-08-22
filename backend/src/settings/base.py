@@ -122,10 +122,12 @@ DJOSER = {
         "user_create": "apps.accounts.serializers.UserRegisterSerializer",
         "current_user": "apps.accounts.serializers.UserProfileSerializer",
         "user": "apps.accounts.serializers.UserProfileSerializer",
+        "set_password": "djoser.serializers.SetPasswordSerializer",
     },
     "PERMISSIONS": {
         "user_create": ["rest_framework.permissions.AllowAny"],
         "user": ["djoser.permissions.CurrentUserOrAdmin"],
+        "set_password": ["djoser.permissions.CurrentUserOrAdmin"],
         "user_list": ["rest_framework.permissions.IsAdminUser"],
     },
     "HIDE_USERS": True,

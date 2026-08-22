@@ -1,13 +1,18 @@
-from rest_framework.permissions import IsAuthenticated
+from rest_framework import status, viewsets, permissions
 from rest_framework.response import Response
+from django.contrib.auth.decorators import permission_required
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from djoser.views import UserViewSet
 from rest_framework_simplejwt.views import TokenBlacklistView, TokenObtainPairView
+
 from .serializers import (
     CustomTokenObtainPairSerializer,
 )
+
+from djoser.views import UserViewSet
+from .serializers import AddressSerializer
+from .models import Address
 
 
 class RegisterView(UserViewSet):
@@ -34,4 +39,15 @@ class LoginView(TokenObtainPairView):
 
 class LogoutView(TokenBlacklistView):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
+
+
+class AddressViewSet(viewsets.ModelViewSet):
+    serializer_class = AddressSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Address.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
