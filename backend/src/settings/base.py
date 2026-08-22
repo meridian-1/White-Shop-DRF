@@ -1,5 +1,6 @@
 from pathlib import Path
 import environ
+from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -15,7 +16,13 @@ DJANGO_APPS = [
     "django.contrib.staticfiles",
 ]
 
-THIRD_PARTY_APPS = ["rest_framework", "corsheaders"]
+THIRD_PARTY_APPS = [
+    "rest_framework",
+    "corsheaders",
+    "rest_framework_simplejwt",
+    "djoser",
+    "rest_framework_simplejwt.token_blacklist",
+]
 
 LOCAL_APPS = ["apps.accounts"]
 
@@ -96,3 +103,30 @@ REST_FRAMEWORK = {
 }
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
+
+
+# JWT
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
+
+DJOSER = {
+    "LOGIN_FIELD": "email",
+    "USER_CREATE_PASSWORD_RETYPE": True,
+    "SEND_ACTIVATION_EMAIL": False,
+    "SERIALIZERS": {
+        "user_create": "apps.accounts.serializers.UserRegisterSerializer",
+        "current_user": "apps.accounts.serializers.UserProfileSerializer",
+        "user": "apps.accounts.serializers.UserProfileSerializer",
+    },
+    "PERMISSIONS": {
+        "user_create": ["rest_framework.permissions.AllowAny"],
+        "user": ["djoser.permissions.CurrentUserOrAdmin"],
+        "user_list": ["rest_framework.permissions.IsAdminUser"],
+    },
+    "HIDE_USERS": True,
+}

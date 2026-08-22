@@ -68,8 +68,7 @@ class Address(models.Model):
 
     class Meta:
         verbose_name = "Адрес"
-        verbose_name_plural = "Адресы"
+        verbose_name_plural = "Адреса"
         db_table = "user_addresses"
-
     def __str__(self):
         return f"{self.full_name}, {self.city}"
