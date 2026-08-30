@@ -22,6 +22,9 @@ THIRD_PARTY_APPS = [
     "rest_framework_simplejwt",
     "djoser",
     "rest_framework_simplejwt.token_blacklist",
+    'easy_thumbnails',
+    'adminsortable2',
+    'django_cleanup.apps.CleanupConfig',
 ]
 
 LOCAL_APPS = ["apps.accounts", "apps.catalog"]
@@ -132,3 +135,5 @@ DJOSER = {
     },
     "HIDE_USERS": True,
 }
+
+# THUMBNAIL_ALIASES = {}

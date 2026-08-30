@@ -1,8 +1,14 @@
 import uuid
 from decimal import Decimal
 from autoslug import AutoSlugField
+from django.core.exceptions import ValidationError
 from django.db import models
-from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
+from django.core.validators import (
+    FileExtensionValidator,
+    MaxValueValidator,
+    MinValueValidator,
+    RegexValidator,
+)
 from django.db.models import (
     BooleanField,
     CharField,
@@ -15,13 +21,42 @@ from django.db.models import (
     TextField,
     UUIDField,
     Q,
+    Manager,
+    QuerySet,
+    Prefetch,
 )
 from mptt.models import MPTTModel, TreeForeignKey
 
 from src.utils.slug import translit_slugify
 
+MAX_IMAGE_MB = 5
 
-class ActiveManager(models.Manager):
+
+def validate_image_size(image):
+    if image.size > MAX_IMAGE_MB * 1024 * 1024:
+        raise ValidationError(f"Максимальный размер изображения - {MAX_IMAGE_MB} МБ")
+
+
+def product_image_upload_to(instance, filename):
+    return f"products/{instance.product.public_id}/{filename}"
+
+
+class ProductQueryset(QuerySet):
+    def catalog(self):
+        return (
+            self.filter(is_active=True)
+            .select_related("category", "brand")
+            .prefetch_related(
+                Prefetch(
+                    "images",
+                    queryset=ProductImage.objects.order_by("order", "id"),
+                    to_attr="prefetched_images",
+                )
+            )
+        )
+
+
+class ActiveManager(Manager.from_queryset(ProductQueryset)):
     def get_queryset(self):
         return super().get_queryset().filter(is_active=True)
 
@@ -149,7 +184,7 @@ class Product(SlugMixin, TimeStampedMixin, IsActiveMixin, models.Model):
         UNISEX = "unisex", "Унисекс"
         KIDS = "kids", "Детский"
 
-    objects = models.Manager()
+    objects = ProductQueryset.as_manager()
     active = ActiveManager()
 
     name = CharField(max_length=100, db_index=True)
@@ -195,6 +230,13 @@ class Product(SlugMixin, TimeStampedMixin, IsActiveMixin, models.Model):
             ),
             models.CheckConstraint(condition=Q(price__gte=1), name="price_gte_1"),
         )
+
+    @property
+    def main_image(self):
+        prefetched = getattr(self, "prefetched_images", None)
+        if prefetched is not None:
+            return prefetched[0] if prefetched else None
+        return self.images.first
 
     @property
     def final_price(self) -> Decimal:
@@ -251,3 +293,33 @@ class ProductVariant(TimeStampedMixin, models.Model):
     @property
     def is_available(self):
         return self.stock > 0
+
+
+class ProductImage(TimeStampedMixin, models.Model):
+    product = ForeignKey(Product, on_delete=models.CASCADE, related_name="images")
+    image = (
+        ImageField(
+            upload_to=product_image_upload_to,
+            validators=[
+                FileExtensionValidator(
+                    allowed_extensions=["jpg", "jpeg", "png", "webp"]
+                ),
+                validate_image_size,
+            ],
+        ),
+    )
+    alt = CharField("Alt-текст (SEO)", max_length=200, blank=True)
+    order = PositiveIntegerField(default=0, db_index=True)
+
+    class Meta:
+        verbose_name = "Изображение товара"
+        verbose_name_plural = "Изображения товара"
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        return f"{self.product} - #{self.order + 1}"
+
+    def save(self, *args, **kwargs):
+        if not self.alt:
+            self.alt = self.product.name
+        return super().save(*args, **kwargs)

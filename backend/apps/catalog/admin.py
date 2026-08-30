@@ -1,12 +1,9 @@
-from turtle import color
-
 from django.contrib import admin
 from django.db.models import Sum
 from django.utils.html import format_html
 from mptt.admin import DraggableMPTTAdmin
-from .models import Brand, Category, Color, Product, ProductVariant, Size
-
-# django-image-uploader-widget
+from .models import Brand, Category, Color, Product, ProductImage, ProductVariant, Size
+from adminsortable2.admin import SortableAdminBase, SortableTabularInline
 
 
 @admin.register(Category)
@@ -89,8 +86,25 @@ class ProductVariantInline(admin.TabularInline):
     verbose_name_plural = "Варианты товара"
 
 
+class ProductImageInline(SortableTabularInline):
+    model = ProductImage
+    extra = 1
+    fields = ("preview", "image", "alt")
+    readonly_fields = ("preview",)
+    ordering = ("order",)
+
+    @admin.display(description="Превью")
+    def preview(self, obj):
+        if obj.image:
+            return format_html(
+                '<img src="{}" style="height:60px; border-radius:4px;" />',
+                obj.image.url,
+            )
+        return "-"
+
+
 @admin.register(Product)
-class ProductAdmin(admin.ModelAdmin):
+class ProductAdmin(SortableAdminBase, admin.ModelAdmin):
     list_display = (
         "name",
         "category",
@@ -107,16 +121,16 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ("name", "slug", "description")
     autocomplete_fields = ("category", "brand")
     readonly_fields = ("public_id",)
-    inlines = (ProductVariantInline,)
+    inlines = (ProductVariantInline, ProductImageInline)
     prepopulated_fields = {"slug": ("name",)}
     list_select_related = ("category", "brand")
 
     def get_queryset(self, request):
         return (
             super()
-            .get_queyset(request)
+            .get_queryset(request)
             .select_related("category", "brand")
-            .annotate(_total_stock=Sum("variant__stock"))
+            .annotate(_total_stock=Sum("variants__stock"))
         )
 
     @admin.display(description="Цены со скидкой")
@@ -168,4 +182,3 @@ class ColorProductAdmin(admin.ModelAdmin):
                 obj.hex_code,
             )
         return "-"
-
